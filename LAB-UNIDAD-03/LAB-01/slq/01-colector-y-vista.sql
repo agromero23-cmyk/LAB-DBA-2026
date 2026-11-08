@@ -34,3 +34,84 @@ WHERE name IN ('log_destination', 'logging_collector', 'log_directory', 'log_fil
                'log_statement', 'log_min_error_statement', 'log_timezone')
 ORDER BY name;
 
+ALTER SYSTEM SET logging_collector = on;
+
+SELECT name, setting, pending_restart
+FROM pg_settings
+WHERE name = 'logging_collector';
+
+SELECT pg_current_logfile();
+
+SELECT linea
+FROM regexp_split_to_table(
+    pg_read_file(pg_current_logfile()),
+    E'\n'
+) AS linea;
+
+CREATE SCHEMA dba;
+
+REVOKE ALL ON SCHEMA dba FROM PUBLIC;
+
+CREATE VIEW dba.bitacora AS
+SELECT t.n AS num, t.linea
+FROM regexp_split_to_table(
+    pg_read_file(pg_current_logfile()),
+    E'\n'
+) WITH ORDINALITY AS t(linea, n)
+WHERE t.linea <> '';
+
+-- Últimas 10 líneas
+SELECT num, linea
+FROM dba.bitacora
+ORDER BY num DESC
+LIMIT 10;
+
+-- Buscar errores
+SELECT linea
+FROM dba.bitacora
+WHERE linea ~ '(FATAL|ERROR)';
+
+SELECT linea
+FROM dba.bitacora
+WHERE linea ILIKE '%update%'
+   OR linea LIKE '%app_ventas%';
+
+SHOW server_encoding;
+
+SHOW client_encoding;
+
+SELECT linea
+FROM regexp_split_to_table(
+    convert_from(
+        pg_read_binary_file(pg_current_logfile()),
+        'WIN1252'
+    ),
+    E'\n'
+) AS linea
+LIMIT 15;
+
+SELECT linea
+FROM regexp_split_to_table(
+    convert_from(
+        pg_read_binary_file(pg_current_logfile()),
+        'WIN1252'
+    ),
+    E'\n'
+) AS linea
+WHERE linea ILIKE '%update%'
+   OR linea ILIKE '%app_ventas%';
+
+SELECT linea
+FROM regexp_split_to_table(
+    convert_from(
+        pg_read_binary_file(pg_current_logfile()),
+        'WIN1252'
+    ),
+    E'\n'
+) AS linea
+WHERE linea ILIKE '%UPDATE clientes SET rfc%'
+   OR linea ILIKE '%connection authorized: user=app_ventas%';
+
+SELECT id, rfc
+FROM clientes
+WHERE id = 3;
